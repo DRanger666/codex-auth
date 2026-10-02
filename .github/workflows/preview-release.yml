@@ -59,6 +59,7 @@ jobs:
 
   publish-preview:
     name: Publish Preview Packages
+    if: ${{ github.repository == 'Loongphy/codex-auth' }}
     runs-on: ubuntu-latest
     needs: release-assets
     steps:
