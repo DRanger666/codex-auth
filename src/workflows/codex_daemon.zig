@@ -134,7 +134,7 @@ fn resolveExecutable(allocator: std.mem.Allocator, home: []const u8) ![]u8 {
         const dir = try std.fs.path.join(allocator, layout);
         defer allocator.free(dir);
         const path = try std.fs.path.join(allocator, &.{ home, dir, name });
-        if (isFile(path)) return path;
+        if (isExecutable(path)) return path;
         allocator.free(path);
     }
     var env = try runtime.currentEnviron().createMap(allocator);
@@ -142,7 +142,7 @@ fn resolveExecutable(allocator: std.mem.Allocator, home: []const u8) ![]u8 {
     var paths = std.mem.splitScalar(u8, env.get("PATH") orelse "", if (builtin.os.tag == .windows) ';' else ':');
     while (paths.next()) |dir| {
         const path = try std.fs.path.join(allocator, &.{ dir, name });
-        if (isFile(path)) {
+        if (isExecutable(path)) {
             defer allocator.free(path);
             return try runtime.realPathFileAlloc(allocator, std.Io.Dir.cwd(), path);
         }
@@ -151,9 +151,12 @@ fn resolveExecutable(allocator: std.mem.Allocator, home: []const u8) ![]u8 {
     return try allocator.dupe(u8, name);
 }
 
-fn isFile(path: []const u8) bool {
+fn isExecutable(path: []const u8) bool {
     const stat = std.Io.Dir.cwd().statFile(runtime.io(), path, .{}) catch return false;
-    return stat.kind == .file;
+    if (stat.kind != .file) return false;
+    if (builtin.os.tag != .windows)
+        std.Io.Dir.cwd().access(runtime.io(), path, .{ .execute = true }) catch return false;
+    return true;
 }
 
 // Output EOF is not proof of exit. Poll without blocking so a helper that

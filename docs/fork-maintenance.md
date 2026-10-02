@@ -4,7 +4,7 @@ This fork keeps a small local compatibility patch while retaining upstream histo
 
 ## Branches and differences
 
-- `fix/daemon-account-switch`: upstream-facing implementation, commits `319d1eb` (bounded daemon helper and tests), `dabade5` (CLI integration, diagnostics, behavior tests, command docs), and `5baaa35` (relative PATH fallback regression fix). Submitted as [upstream draft PR #164](https://github.com/Loongphy/codex-auth/pull/164); real account recovery remains pending an idle interruption window.
+- `fix/daemon-account-switch`: upstream-facing implementation, commits `319d1eb` (bounded daemon helper and tests), `dabade5` (CLI integration, diagnostics, behavior tests, command docs), `5baaa35` (relative PATH fallback regression fix), and `0836af1` (Unix executable-permission checks and focused resolver tests). Submitted as [upstream draft PR #164](https://github.com/Loongphy/codex-auth/pull/164); real account recovery remains pending an idle interruption window.
 - `fork/local-install`: the same implementation plus this delivery note and fork publishing guards. Test CI and packaging metadata checks remain intact; upstream preview/npm/release publication is disabled on this fork until a distribution route is selected.
 - The daemon diagnosis and restart idea originated in [codejunkienick's PR #163](https://github.com/Loongphy/codex-auth/pull/163). This independently implements an explicit per-command workflow, responsive detection, bounded calls, and visible operational failure without adding a persisted setting. See [switch behavior](commands/switch.md).
 - Sajid's CODEX_HOME contribution #51 and isolated-login scratch-directory fix #120 are already in the selected upstream history. The original `feat/codex-home-override` and `fix/login-scratch-codex-home` branches remain preserved. Their relevant behavior is included upstream; nothing was cherry-picked again. Comparing the local login fix with upstream shows only the subsequently removed comment, not an omitted functional fix.
@@ -15,7 +15,7 @@ This fork keeps a small local compatibility patch while retaining upstream histo
 - Codex shell CLI: `/usr/bin/codex` (npm wrapper), `0.160.0`. Managed daemon: `.codex_apos/packages/app-server-daemon/current/bin/codex`, also `0.160.0`.
 - Effective home: `/home/mpr/.codex_apos`; registry schema 4; no explicit credential-store setting or credential environment override was found in the inspected daemon/clients.
 - Disk and registry select account A; a supported daemon `account/read` with `refreshToken: false` reports account B. The implementing session uses that daemon. Restart recovery and A→B→A runtime verification remain pending a quiet interruption window.
-- Baseline: 435 passed, 5 skipped. Final candidate: 447 passed, 5 skipped. The skips are the existing Linux baseline skips. Windows/macOS ReleaseSafe cross-builds passed; their runtimes have not been tested locally.
+- Baseline: 435 passed, 5 skipped. Final candidate: 448 passed, 5 skipped. The skips are the existing Linux baseline skips. Windows/macOS ReleaseSafe cross-builds passed; their runtimes have not been tested locally.
 - Required isolated `run -- list`, touched-file formatting, and `git diff --check` passed. Boundary checks found the same two pre-existing inline tests in `src/cli/live_tui.zig`; no new inline tests or test-only production exports were introduced.
 
 Validation used an empty/synthetic environment, never live account copies:
@@ -39,15 +39,15 @@ env -i PATH="$zig_dir:/usr/bin:/bin" HOME="$task_root/home" CODEX_HOME="$task_ro
   -Doptimize=ReleaseSafe -p "$task_root/native-release"
 ```
 
-Retained final evidence is at `/home/mpr/random_arbitrary_nothing/codex-auth-local/validation/5baaa35d0bc7`: `baseline.log`, `path-fix-tests.log`, `path-fix-smoke.log`, and the `path-fix-{native,windows,macos}.log` build logs. Recreate the empty home directories before repeating in a new task root. Keep the test helper install prefix isolated from the original checkout's installed binary.
+Retained final evidence is at `/home/mpr/random_arbitrary_nothing/codex-auth-local/validation/0836af1c647f`: `baseline.log`, `resolver-review-tests.log`, `resolver-review-smoke.log`, and the `resolver-review-{native,windows,macos}.log` build logs. Recreate the empty home directories before repeating in a new task root. Keep the test helper install prefix isolated from the original checkout's installed binary.
 
 ## Candidate, verification, and cutover
 
 Candidate executable:
 
-`/home/mpr/random_arbitrary_nothing/codex-auth-local/builds/0.3.0-sajid-5baaa35d0bc7/codex-auth`
+`/home/mpr/random_arbitrary_nothing/codex-auth-local/builds/0.3.0-sajid-0836af1c647f/codex-auth`
 
-The CLI retains upstream's `0.3.0` version string; this is an untagged fork build, not an official upstream release. Its adjacent `build-manifest.json` records source commit, compiler, optimization, binary SHA256, and the recoverable previous executable. Code comes from `5baaa35d0bc7d059ed84bde3621ab04cbb0bf85a`; the delivery-only branch adds no Zig changes.
+The CLI retains upstream's `0.3.0` version string; this is an untagged fork build, not an official upstream release. Its adjacent `build-manifest.json` records source commit, compiler, optimization, binary SHA256, and the recoverable previous executable. Code comes from `0836af1c647fb94547ebfaea81e854f0b096143f`; the delivery-only branch adds no Zig changes.
 
 Before real switching, make affected sessions idle and create a private, permission-preserving backup outside the source repository of `auth.json`, `accounts/registry.json`, `config.toml`, and account snapshot JSON files. Exclude these private backups from Git. File restoration cannot undo server-side OAuth rotation/revocation. Do not run parallel refreshing copies of the same live credentials.
 
@@ -55,7 +55,7 @@ The first real check should repair the existing mismatch, with no credential dif
 
 ```sh
 CODEX_HOME=/home/mpr/.codex_apos \
-  /home/mpr/random_arbitrary_nothing/codex-auth-local/builds/0.3.0-sajid-5baaa35d0bc7/codex-auth \
+  /home/mpr/random_arbitrary_nothing/codex-auth-local/builds/0.3.0-sajid-0836af1c647f/codex-auth \
   switch apostolic --restart-daemon
 ```
 
