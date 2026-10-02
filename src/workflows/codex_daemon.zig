@@ -144,7 +144,7 @@ fn resolveExecutable(allocator: std.mem.Allocator, home: []const u8) ![]u8 {
         const path = try std.fs.path.join(allocator, &.{ dir, name });
         if (isFile(path)) {
             defer allocator.free(path);
-            return try runtime.realPathFileAbsoluteAlloc(allocator, path);
+            return try runtime.realPathFileAlloc(allocator, std.Io.Dir.cwd(), path);
         }
         allocator.free(path);
     }
