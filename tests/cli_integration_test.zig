@@ -864,7 +864,7 @@ test "Scenario: Given daemon-aware switching then explicit recovery preserves se
     }
 }
 
-test "Scenario: Given no managed executable then daemon restart resolves a relative PATH entry" {
+test "Scenario: Given no managed executable then daemon restart resolves relative and empty PATH entries" {
     if (builtin.os.tag == .windows) return error.SkipZigTest;
     const gpa = std.testing.allocator;
     const project_root = try projectRootAlloc(gpa);
@@ -872,6 +872,45 @@ test "Scenario: Given no managed executable then daemon restart resolves a relat
     try buildCliBinary(gpa, project_root);
     const exe = try builtCliPathAlloc(gpa, project_root);
     defer gpa.free(exe);
+    for ([_][]const u8{ "./fallback", "" }) |path| {
+        var tmp = fs.tmpDir(.{});
+        defer tmp.cleanup();
+        const root = try tmp.dir.realpathAlloc(gpa, ".");
+        defer gpa.free(root);
+        const home = try seedDaemonSwitchFixture(gpa, root, false);
+        defer gpa.free(home);
+        var dir = try tmp.dir.openDir(".codex", .{});
+        defer dir.close();
+        try fake_daemon.install(dir, fake_daemon.succeed);
+        try tmp.dir.makePath("fallback");
+        try tmp.dir.rename(".codex/packages/app-server-daemon/current/bin/codex", if (path.len == 0) "codex" else "fallback/codex");
+        var env = try getEnvMap(gpa);
+        defer env.deinit();
+        try env.put("HOME", root);
+        try env.put("USERPROFILE", root);
+        try env.put("CODEX_HOME", home);
+        try env.put("PATH", path);
+        try env.put("CODEX_AUTH_SKIP_SERVICE_RECONCILE", "1");
+        const result = try runCapture(gpa, root, &env, &.{ exe, "switch", "beta", "--restart-daemon" });
+        defer gpa.free(result.stdout);
+        defer gpa.free(result.stderr);
+        try expectSuccess(result);
+        try std.testing.expect(std.mem.indexOf(u8, result.stderr, "daemon restart completed") != null);
+        const calls = try fake_daemon.read(dir, "lifecycle-calls");
+        defer gpa.free(calls);
+        try std.testing.expectEqualStrings("version\nrestart\n", calls);
+        const forwarded = try fake_daemon.read(dir, "restarted-home");
+        defer gpa.free(forwarded);
+        try std.testing.expectEqualStrings(home, std.mem.trimEnd(u8, forwarded, "\n"));
+    }
+}
+
+test "Scenario: Given a non-executable codex first in PATH then daemon restart uses the next executable" {
+    if (builtin.os.tag == .windows) return error.SkipZigTest;
+    const gpa = std.testing.allocator;
+    const project_root = try projectRootAlloc(gpa);
+    defer gpa.free(project_root);
+    try buildCliBinary(gpa, project_root);
     var tmp = fs.tmpDir(.{});
     defer tmp.cleanup();
     const root = try tmp.dir.realpathAlloc(gpa, ".");
@@ -883,14 +922,20 @@ test "Scenario: Given no managed executable then daemon restart resolves a relat
     try fake_daemon.install(dir, fake_daemon.succeed);
     try tmp.dir.makePath("fallback");
     try tmp.dir.rename(".codex/packages/app-server-daemon/current/bin/codex", "fallback/codex");
-    var env = try getEnvMap(gpa);
-    defer env.deinit();
-    try env.put("HOME", root);
-    try env.put("USERPROFILE", root);
-    try env.put("CODEX_HOME", home);
-    try env.put("PATH", "fallback");
-    try env.put("CODEX_AUTH_SKIP_SERVICE_RECONCILE", "1");
-    const result = try runCapture(gpa, root, &env, &.{ exe, "switch", "beta", "--restart-daemon" });
+    try tmp.dir.makePath("decoy");
+    try tmp.dir.writeFile(.{ .sub_path = "decoy/codex", .data = "not executable" });
+    {
+        var file = try tmp.dir.openFile("decoy/codex", .{ .mode = .read_write });
+        defer file.close();
+        try file.chmod(0o600);
+    }
+    const decoy = try tmp.dir.realpathAlloc(gpa, "decoy");
+    defer gpa.free(decoy);
+    const fallback = try tmp.dir.realpathAlloc(gpa, "fallback");
+    defer gpa.free(fallback);
+    const path = try std.fmt.allocPrint(gpa, "{s}:{s}", .{ decoy, fallback });
+    defer gpa.free(path);
+    const result = try runCliWithIsolatedHomeAndCodexHomeAndPath(gpa, project_root, root, home, path, &.{ "switch", "beta", "--restart-daemon" });
     defer gpa.free(result.stdout);
     defer gpa.free(result.stderr);
     try expectSuccess(result);
