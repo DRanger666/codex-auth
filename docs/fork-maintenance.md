@@ -4,17 +4,17 @@ This fork keeps a small local compatibility patch while retaining upstream histo
 
 ## Branches and differences
 
-- `fix/daemon-account-switch`: upstream-facing implementation, commits `319d1eb` (bounded daemon helper and tests), `dabade5` (CLI integration, diagnostics, behavior tests, command docs), `5baaa35` (relative PATH fallback regression fix), and `0836af1` (Unix executable-permission checks and focused resolver tests). Submitted as [upstream draft PR #164](https://github.com/Loongphy/codex-auth/pull/164); real account recovery remains pending an idle interruption window.
+- `fix/daemon-account-switch`: upstream-facing implementation, commits `319d1eb` (bounded daemon helper and tests), `dabade5` (CLI integration, diagnostics, behavior tests, command docs), `5baaa35` (relative PATH fallback regression fix), and `0836af1` (Unix executable-permission checks and focused resolver tests). Submitted as [upstream PR #164](https://github.com/Loongphy/codex-auth/pull/164); real Linux account recovery and local installation passed.
 - `fork/local-install`: the same implementation plus this delivery note and fork publishing guards. Test CI and packaging metadata checks remain intact; upstream preview/npm/release publication is disabled on this fork until a distribution route is selected.
 - The daemon diagnosis and restart idea originated in [codejunkienick's PR #163](https://github.com/Loongphy/codex-auth/pull/163). This independently implements an explicit per-command workflow, responsive detection, bounded calls, and visible operational failure without adding a persisted setting. See [switch behavior](commands/switch.md).
 - Sajid's CODEX_HOME contribution #51 and isolated-login scratch-directory fix #120 are already in the selected upstream history. The original `feat/codex-home-override` and `fix/login-scratch-codex-home` branches remain preserved. Their relevant behavior is included upstream; nothing was cherry-picked again. Comparing the local login fix with upstream shows only the subsequently removed comment, not an omitted functional fix.
 
 ## Local evidence, 2 October 2026
 
-- Existing alias: `codex-auth-dev` → `/home/mpr/random_arbitrary_nothing/codex-auth/zig-out/bin/codex-auth`, reporting `0.3.0-alpha.8`. This executable and alias have not been replaced.
+- Previous alias: `codex-auth-dev` → `/home/mpr/random_arbitrary_nothing/codex-auth/zig-out/bin/codex-auth`, reporting `0.3.0-alpha.8`. The executable is retained for rollback. The alias now selects `codex-auth-local/current/codex-auth`, reporting `0.3.0`.
 - Codex shell CLI: `/usr/bin/codex` (npm wrapper), `0.160.0`. Managed daemon: `.codex_apos/packages/app-server-daemon/current/bin/codex`, also `0.160.0`.
 - Effective home: `/home/mpr/.codex_apos`; registry schema 4; no explicit credential-store setting or credential environment override was found in the inspected daemon/clients.
-- Disk and registry select account A; a supported daemon `account/read` with `refreshToken: false` reports account B. The implementing session uses that daemon. Restart recovery and A→B→A runtime verification remain pending a quiet interruption window.
+- Initially disk and registry selected A while supported daemon `account/read` with `refreshToken: false` reported B. Explicit restart repaired the unchanged-file mismatch. Selecting A without the option kept the same daemon PID; A→B→A explicit switches changed PIDs and reported the expected account identities. Configuration/history checks passed. The attached TUI reconnected automatically without exit/resume; interrupted active-task continuation was not tested.
 - Baseline: 435 passed, 5 skipped. Final candidate: 448 passed, 5 skipped. The skips are the existing Linux baseline skips. Windows/macOS ReleaseSafe cross-builds passed; their runtimes have not been tested locally.
 - Required isolated `run -- list`, touched-file formatting, and `git diff --check` passed. Boundary checks found the same two pre-existing inline tests in `src/cli/live_tui.zig`; no new inline tests or test-only production exports were introduced.
 
@@ -67,7 +67,7 @@ After acceptance, create `codex-auth-local/current` pointing to the verified ver
 alias codex-auth-dev='/home/mpr/random_arbitrary_nothing/codex-auth-local/current/codex-auth'
 ```
 
-Keep the original checkout's binary. Alias rollback is the original line above; a second unchanged copy is at `/home/mpr/random_arbitrary_nothing/codex-auth-local/rollback/before-daemon-candidate/codex-auth`. Verify `type -a codex-auth-dev` and `codex-auth-dev --version` after reloading the alias. Installation is pending; no live alias, auth files, or daemon have been changed by candidate preparation.
+Keep the original checkout's binary. Alias rollback is the previous executable path recorded above; a second unchanged copy is at `/home/mpr/random_arbitrary_nothing/codex-auth-local/rollback/before-daemon-candidate/codex-auth`. Local acceptance and installation completed: `current` selects the candidate directory, and the alias and version were verified in a fresh interactive shell. The private acceptance report and permission-preserving backups remain outside Git. After the user's subsequent switch, read-only daemon inspection confirmed account B.
 
 ## Updating
 
